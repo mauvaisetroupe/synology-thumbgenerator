@@ -3,6 +3,7 @@ package com.mauvaisetroupe.synology;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -22,12 +23,65 @@ import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifIFD0Directory;
 
 public class ImageResizer {
+	
+	
+	public void walk(String pathToExplore) throws IOException {
+		Consumer<Path> myConsumer = new Consumer<Path>() {
+			@Override
+			public void accept(Path t) {
+				// System.out.println(t);
+				// avoid @eaDir in @eaDir
 
-	public static void resizeAndRedress(String inputImagePath, String outputImagePath, int newSize, Boolean resizeOnMin) throws IOException, ImageProcessingException {
+				if (t.toString().contains("@eaDir")) {
+					return;
+				}
+
+				File eaDir = new File(t.getParent().toString(), "@eaDir");
+				File jpgThumbsFolder = new File(eaDir, t.getFileName().toString());
+				if (!jpgThumbsFolder.exists())
+					jpgThumbsFolder.mkdirs();
+				
+				if (!jpgThumbsFolder.exists())
+					throw new RuntimeException("Cannot create folder " + jpgThumbsFolder);
+
+				List<Integer> 	sizes 			= Arrays.asList(1280, 640, 320, 512, 120);
+				List<String> 	names 			= Arrays.asList("XL", "B", "M", "PREVIEW", "S");
+				List<Boolean> 	resizeOnMin 	= Arrays.asList(true,false,true,false,false);
+
+				for (int i = 0; i < names.size(); i++) {
+					try {
+						File f = new File(jpgThumbsFolder, "SYNOPHOTO_THUMB_" + names.get(i) + ".jpg");
+						if (!f.exists()) {
+							resizeAndRedress(t.toString(), f.getAbsolutePath(), sizes.get(i), resizeOnMin.get(i));
+							System.out.println(f + " created.");
+						}
+					}
+
+					catch (Throwable e) {
+						e.printStackTrace();
+					}
+
+				}
+			}
+
+		};
+
+		Files.walk(Paths.get(pathToExplore)).filter(Files::isRegularFile).filter(f -> f.toString().endsWith("jpg")).forEach(myConsumer);
+		//Files.walk(Paths.get("D://TEST-thumbnails/echantillon1")).filter(Files::isRegularFile).filter(f -> f.toString().endsWith("jpg")).forEach(myConsumer);
+		// que faire avec les .JPG au lieu de .jpg ?
+		// que faire avec les .JPEG au lieu de .jpg ?
+		// f.toString().toLowerCase().endsWith(".jpg")
+	}
+	
+	public void resizeAndRedress(String inputImagePath, String outputImagePath, int newSize, Boolean resizeOnMin) throws IOException, ImageProcessingException {
 
 		// reads input image
 		File inputFile = new File(inputImagePath);
 		BufferedImage inputImage = ImageIO.read(inputFile);
+		if (inputImage==null) {
+			System.out.println("XXXXX PB with file " +  inputImagePath);
+			return;
+		}
 
 		// creates output image
 		Scalr.Mode scaleMode = Scalr.Mode.AUTOMATIC;
@@ -105,52 +159,16 @@ public class ImageResizer {
 
 	public static void main(String[] args) throws IOException {
 
-		Consumer<Path> myConsumer = new Consumer<Path>() {
-			@Override
-			public void accept(Path t) {
-				// System.out.println(t);
-				// avoid @eaDir in @eaDir
-
-				if (t.toString().contains("@eaDir")) {
-					return;
-				}
-
-				File eaDir = new File(t.getParent().toString(), "@eaDir");
-				File jpgThumbsFolder = new File(eaDir, t.getFileName().toString());
-				if (!jpgThumbsFolder.exists())
-					jpgThumbsFolder.mkdirs();
-
-				List<Integer> 	sizes 			= Arrays.asList(1280, 640, 320, 512, 120);
-				List<String> 	names 			= Arrays.asList("XL", "B", "M", "PREVIEW", "S");
-				List<Boolean> 	resizeOnMin 	= Arrays.asList(true,false,true,false,false);
-
-				for (int i = 0; i < names.size(); i++) {
-					try {
-						File f = new File(jpgThumbsFolder, "SYNOPHOTO_THUMB_" + names.get(i) + ".jpg");
-						if (!f.exists()) {
-							ImageResizer.resizeAndRedress(t.toString(), f.getAbsolutePath(), sizes.get(i), resizeOnMin.get(i));
-							System.out.println(f + " created.");
-						}
-					}
-
-					catch (IOException e) {
-						e.printStackTrace();
-					} catch (ImageProcessingException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-
-				}
+		ImageResizer imageResizer = new ImageResizer();
+		if(args.length != 1 ) { 
+			   throw new RuntimeException("Please provide folder to explore as argument");
 			}
-
-		};
-
-		Files.walk(Paths.get("//DISKSTATION/photo/Huawei/Zelande")).filter(Files::isRegularFile).filter(f -> f.toString().endsWith("jpg")).forEach(myConsumer);
-		//Files.walk(Paths.get("D://TEST-thumbnails/echantillon1")).filter(Files::isRegularFile).filter(f -> f.toString().endsWith("jpg")).forEach(myConsumer);
-
-		// que faire avec les .JPG au lieu de .jpg ?
-
-		// f.toString().toLowerCase().endsWith(".jpg")
+		String filePathString = args[0];
+		File f = new File(filePathString);
+		if(args.length != 1 || ! f.exists() || !f.isDirectory()) { 
+		   throw new RuntimeException("Please provide folder to explore - pb with " + f.getAbsolutePath());
+		}
+		imageResizer.walk(filePathString);
 
 	}
 }
