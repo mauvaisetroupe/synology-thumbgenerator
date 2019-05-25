@@ -31,6 +31,11 @@ public class ImageResizer {
 			public void accept(Path t) {
 				// System.out.println(t);
 				// avoid @eaDir in @eaDir
+				
+				
+				// Si file.jpg => @eaDir/file.jpg/SYNOPHOTO_THUMB_B.jpg
+				// Si file.JPG => @eaDir/file.JPG/SYNOPHOTO_THUMB_B.jpg
+				
 
 				if (t.toString().contains("@eaDir")) {
 					return;
@@ -66,7 +71,8 @@ public class ImageResizer {
 
 		};
 
-		Files.walk(Paths.get(pathToExplore)).filter(Files::isRegularFile).filter(f -> f.toString().endsWith("jpg")).forEach(myConsumer);
+		// for some reason, .filter(Files::isRegularFile) sometimes doesnt work on synology folde... sometimes
+		Files.walk(Paths.get(pathToExplore)).filter(f -> f.toString().toLowerCase().endsWith("jpg")).forEach(myConsumer);
 		//Files.walk(Paths.get("D://TEST-thumbnails/echantillon1")).filter(Files::isRegularFile).filter(f -> f.toString().endsWith("jpg")).forEach(myConsumer);
 		// que faire avec les .JPG au lieu de .jpg ?
 		// que faire avec les .JPEG au lieu de .jpg ?
@@ -168,6 +174,7 @@ public class ImageResizer {
 		if(args.length != 1 || ! f.exists() || !f.isDirectory()) { 
 		   throw new RuntimeException("Please provide folder to explore - pb with " + f.getAbsolutePath());
 		}
+		System.out.println("About to explore " + filePathString);
 		imageResizer.walk(filePathString);
 
 	}
